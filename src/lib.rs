@@ -1,14 +1,40 @@
-pub fn add(left: usize, right: usize) -> usize {
-    left + right
+#![allow(async_fn_in_trait)]
+
+use core::future::Future;
+
+pub trait Iterator {
+    type Item;
+
+    async fn next(&mut self) -> Option<Self::Item>;
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+/// An iterator that yields a single element.
+/// 
+/// # Examples
+/// 
+/// ```
+/// # use futures_executor::block_on;
+/// # use async_fn_next::*;
+/// # block_on(async {
+/// let mut iter = once(async { 1 });
+/// assert_eq!(iter.next().await, Some(1));
+/// assert_eq!(iter.next().await, None);
+/// # })
+pub fn once<F: Future>(f: F) -> impl Iterator<Item = F::Output> {
+    Once { f: Some(f) }
+}
 
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
+pub struct Once<F> {
+    f: Option<F>,
+}
+
+impl<F: Future> Iterator for Once<F> {
+    type Item = F::Output;
+
+    async fn next(&mut self) -> Option<Self::Item> {
+        match self.f.take() {
+            Some(f) => Some(f.await),
+            None => None,
+        }
     }
 }
